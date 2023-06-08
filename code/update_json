@@ -28,6 +28,8 @@ def update_json(infile, annotated_file):
                         if s != ' ':
                             break
                         indent += 1
+                    break
+            assert indent < 16, f"got indent {indent}"
 
         # we care only about Annotations
         for k, v in in_struct.items():
