@@ -13,7 +13,9 @@ our_org=$orig_org-JSONLD
 ds="$1"
 
 repo_exists(){
-    response=$(curl -s -o /dev/null -w "%{http_code}" "https://api.github.com/repos/$1")
+    #response=$(curl -s -o /dev/null -w "%{http_code}" "https://api.github.com/repos/$1")
+    # we better do authenticated one via gh
+    response=$(gh api --include --silent repos/$1 2>/dev/null | head -n1 | awk '{print $2}')
     case "$response" in
       404)
         return 1;;
@@ -79,8 +81,15 @@ else
     git push jsonld upstream/master
 fi
 
-# KISS attempt #1: just embed results from the neurobagel tool which were pre-generated
+# KISS attempt #1: just embed results from the neurobagel tool which were
+# pre-generated Because Yarik made "origin" to be original organization repo
+# and not our clone
+# and then made clone from it, its master started to follow the original
+# organization instead of our clone.  So when we do checkout master here
+# even if we pull, we would not get our clone master. SO we workaround for now
 git checkout master
+git pull --ff-only jsonld master
+
 # We need to update to the state of the upstream/master entirely, and only enhance one file
 git merge -s ours --no-commit upstream/master && git read-tree -m -u upstream/master
 # Run our super command
