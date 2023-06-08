@@ -114,7 +114,7 @@ git add .
 if [ -z "$(git status --porcelain)" ]; then
     echo "Clean -- no changes, boring"
 else
-    git commit -m "$action participants.json"
+    git commit -m "$action participants.json with Annotation for NeuroBagel"
     git push jsonld $branch
 fi
 )
