@@ -67,33 +67,41 @@ fi
 (
 cd $ds
 
+# could be main or master!
+branch=$(sed -e 's,.*/,,g' .git/HEAD)
+# in openneuro only main or master
+if ! echo $branch | grep -e main -e master -q; then
+    echo "Branch $branch is neither master nor main"
+    exit 1
+fi
+
 # Update our jsonld fork, to be done regularly
 git fetch origin
-if [ ! -e .git/refs/heads/upstream/master ]; then
+if [ ! -e .git/refs/heads/upstream/$branch ]; then
     # TODO: just update-ref, no need for checkout
-    git checkout -b upstream/master --track origin/master
-    if [ ! -e .git/refs/heads/jsonld/upstream/master ] || git diff upstream/master^..jsonld/upstream/master | grep -q .; then
-        git push -u jsonld upstream/master
+    git checkout -b upstream/$branch --track origin/$branch
+    if [ ! -e .git/refs/heads/jsonld/upstream/$branch ] || git diff upstream/$branch^..jsonld/upstream/$branch | grep -q .; then
+        git push -u jsonld upstream/$branch
     fi
 else
-    git checkout upstream/master
+    git checkout upstream/$branch
     # may be not --ff-only -- may be just  reset --hard.
     # For now get alerted when isn't possible
-    git merge --ff-only origin/master
-    git push jsonld upstream/master
+    git merge --ff-only origin/$branch
+    git push jsonld upstream/$branch
 fi
 
 # KISS attempt #1: just embed results from the neurobagel tool which were
 # pre-generated Because Yarik made "origin" to be original organization repo
 # and not our clone
-# and then made clone from it, its master started to follow the original
-# organization instead of our clone.  So when we do checkout master here
-# even if we pull, we would not get our clone master. SO we workaround for now
-git checkout master
-git pull --ff-only jsonld master
+# and then made clone from it, its $branch started to follow the original
+# organization instead of our clone.  So when we do checkout $branch here
+# even if we pull, we would not get our clone $branch. SO we workaround for now
+git checkout $branch
+git pull --ff-only jsonld $branch
 
-# We need to update to the state of the upstream/master entirely, and only enhance one file
-git merge -s ours --no-commit upstream/master && git read-tree -m -u upstream/master
+# We need to update to the state of the upstream/$branch entirely, and only enhance one file
+git merge -s ours --no-commit upstream/$branch && git read-tree -m -u upstream/$branch
 # Run our super command
 if [ -e participants.json ]; then
     action="Updated"
@@ -107,6 +115,6 @@ if [ -z "$(git status --porcelain)" ]; then
     echo "Clean -- no changes, boring"
 else
     git commit -m "$action participants.json"
-    git push jsonld master
+    git push jsonld $branch
 fi
 )
