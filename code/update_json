@@ -1,9 +1,48 @@
 #!/usr/bin/env python3
 
 import json
+import os.path as op
+
+# from neurobagel.schema import NeuroBagelModel?
 
 import click
 
 @click.command()
-@click.argument('infile', type=click.File())
+@click.argument('infile', type=click.Path(dir_okay=False))
+@click.argument('annotated_file', type=click.Path(exists=True, dir_okay=False))
 def update_json(infile, annotated_file):
+    target = 'Annotations'
+    with open(annotated_file, 'r', encoding='utf-8') as f:
+        ann_struct = json.load(f)
+
+    if op.exists(infile):
+        with open(infile, 'r', encoding='utf-8') as f:
+            in_struct = json.load(f)
+
+        # figure out original indentation
+        indent = 0
+        with open(infile, 'r', encoding='utf-8') as f:
+            for line in f.readlines():
+                if not line.startswith('{'):
+                    for s in line:
+                        if s != ' ':
+                            break
+                        indent += 1
+
+        # we care only about Annotations
+        for k, v in in_struct.items():
+            if target in v:
+                raise ValueError(f"File {infile} already has {target} value: {v[target]}")
+            if target in ann_struct[k]:
+                v[target] = ann_struct[k][target]
+    else:
+        print(f"No {infile} -- we will produce one from scratch")
+        in_struct = ann_struct
+        indent = 4
+
+    with open(infile, 'w', encoding='utf-8') as f:
+        json.dump(in_struct, f, **(dict(indent=indent) if indent else {}))
+    print(f"Finished writing {infile}")
+
+if __name__ == '__main__':
+    update_json()

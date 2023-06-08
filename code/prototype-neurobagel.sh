@@ -1,24 +1,43 @@
 #!/bin/sh
 
-neurobagel_annotations=.../TODO
-code_path=../code
+set -eux
 
-ds=ds000113
+neurobagel_annotations=../openneuro-annotations
+code_path=../../CON/job/code/
+
+# TODO: replace with the variables
+upstream_remote_name=upstream  # could be openneuro to be more descriptive
+orig_org=OpenNeuroDatasets
+our_org=$orig_org-JSONLD
+
+ds="$1"
 
 # Once
 
 if [ ! -e $ds ]; then
 (
 # 1. fork https://github.com/OpenNeuroDatasets to https://github.com/OpenNeuroDatasets-JSONLD
-if ! gh check-exists https://github.com/OpenNeuroDatasets-JSONLD/$ds; then
-    gh fork https://github.com/OpenNeuroDatasets/$ds https://github.com/OpenNeuroDatasets-JSONLD/$ds
-fi
-
+response=$(curl -s -o /dev/null -w "%{http_code}" "https://api.github.com/repos/OpenNeuroDatasets-JSONLD/$ds")
+case "$response" in
+  404)
+    gh repo fork --org OpenNeuroDatasets-JSONLD OpenNeuroDatasets/$ds --clone=false;;
+  200)
+    ;;
+  *)
+    echo "Unknown response upon check: $response"
+    exit 1 ;;
+esac
 git clone https://github.com/OpenNeuroDatasets/$ds
-cd $ds
-git remote add --fetch jsonld https://github.com/OpenNeuroDatasets-JSONLD/$ds
 )
 fi
+
+# Add our remote
+(
+cd $ds
+if ! git remote | grep -q jsonld; then 
+    git remote add --fetch jsonld https://github.com/OpenNeuroDatasets-JSONLD/$ds
+fi
+)
 
 
 # Every time
@@ -28,8 +47,11 @@ cd $ds
 # Update our jsonld fork, to be done regularly
 git fetch origin
 if [ ! -e .git/refs/heads/upstream/master ]; then
+    # TODO: just update-ref, no need for checkout
     git checkout -b upstream/master --track origin/master
-    git push -u jsonld upstream/master
+    if [ ! -e .git/refs/heads/jsonld/upstream/master ] || git diff upstream/master^..jsonld/upstream/master | grep -q .; then
+        git push -u jsonld upstream/master
+    fi
 else
     git checkout upstream/master
     # may be not --ff-only -- may be just  reset --hard.
@@ -43,7 +65,18 @@ git checkout master
 # We need to update to the state of the upstream/master entirely, and only enhance one file
 git merge -s ours --no-commit upstream/master && git read-tree -m -u upstream/master
 # Run our super command
-$code_path/update_json participants.json $neurobagel_annotations/openneuro_${ds}.json
-git add -r .
-git commit -m 'Updated participants.json'
+if [ -e participants.json ]; then
+    action="Updated"
+else
+    action="Added"
+fi
+
+$code_path/update_json participants.json $neurobagel_annotations/${ds}.json
+git add .
+if [ -z "$(git status --porcelain)" ]; then
+    echo "Clean -- no changes, boring"
+else
+    git commit -m "$action participants.json"
+    git push jsonld master
+fi
 )
