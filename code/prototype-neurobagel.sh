@@ -56,6 +56,8 @@ if ! git remote | grep -q jsonld; then
         echo "waiting for the fork to come into our embrace"
         sleep 1
     done
+    # loop above is not trust worthy yet... just sleep a little
+    sleep 2
     git remote add --fetch jsonld https://github.com/OpenNeuroDatasets-JSONLD/$ds
 fi
 )
