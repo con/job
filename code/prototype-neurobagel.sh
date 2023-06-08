@@ -12,21 +12,36 @@ our_org=$orig_org-JSONLD
 
 ds="$1"
 
+repo_exists(){
+    response=$(curl -s -o /dev/null -w "%{http_code}" "https://api.github.com/repos/$1")
+    case "$response" in
+      404)
+        return 1;;
+      200)
+        return 0;;
+      *)
+        echo "Unknown response upon check: $response"
+        return $response ;;
+    esac
+}
+
 # Once
 
 if [ ! -e $ds ]; then
 (
 # 1. fork https://github.com/OpenNeuroDatasets to https://github.com/OpenNeuroDatasets-JSONLD
-response=$(curl -s -o /dev/null -w "%{http_code}" "https://api.github.com/repos/OpenNeuroDatasets-JSONLD/$ds")
-case "$response" in
-  404)
+set +e
+repo_exists "OpenNeuroDatasets-JSONLD/$ds" 
+case $? in
+  1)
     gh repo fork --org OpenNeuroDatasets-JSONLD OpenNeuroDatasets/$ds --clone=false;;
-  200)
+  0)
     ;;
   *)
     echo "Unknown response upon check: $response"
     exit 1 ;;
 esac
+set -e
 git clone https://github.com/OpenNeuroDatasets/$ds
 )
 fi
@@ -35,6 +50,10 @@ fi
 (
 cd $ds
 if ! git remote | grep -q jsonld; then 
+    while !repo_exists "OpenNeuroDatasets-JSONLD/$ds"; do
+        echo "waiting for the fork to come into our embrace"
+        sleep 1
+    done
     git remote add --fetch jsonld https://github.com/OpenNeuroDatasets-JSONLD/$ds
 fi
 )
