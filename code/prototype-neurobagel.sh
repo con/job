@@ -50,7 +50,7 @@ fi
 (
 cd $ds
 if ! git remote | grep -q jsonld; then 
-    while !repo_exists "OpenNeuroDatasets-JSONLD/$ds"; do
+    while ! repo_exists "OpenNeuroDatasets-JSONLD/$ds"; do
         echo "waiting for the fork to come into our embrace"
         sleep 1
     done
